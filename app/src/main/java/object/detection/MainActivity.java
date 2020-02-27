@@ -20,9 +20,12 @@ import org.opencv.android.BaseLoaderCallback;
 import org.opencv.android.LoaderCallbackInterface;
 import org.opencv.android.OpenCVLoader;
 import org.opencv.android.Utils;
+import org.opencv.core.Core;
 import org.opencv.core.Mat;
 import org.opencv.core.MatOfFloat;
 import org.opencv.core.MatOfInt;
+import org.opencv.core.Point;
+import org.opencv.core.Scalar;
 import org.opencv.imgproc.Imgproc;
 import org.opencv.core.CvType;
 
@@ -121,24 +124,32 @@ public class MainActivity extends AppCompatActivity {
     }
     private Bitmap calcHist(Bitmap input, int histWidth, int histHeight){
         // prepare Mat object for processing
-        Mat imgMat = new Mat(input.getWidth(), input.getHeight(), CvType.CV_8UC4);
-        Utils.bitmapToMat(input, imgMat);
-        Imgproc.cvtColor(imgMat, imgMat, Imgproc.COLOR_RGB2GRAY);
+        Mat sourceImgMat = new Mat(input.getWidth(), input.getHeight(), CvType.CV_8UC4);
+        Utils.bitmapToMat(input, sourceImgMat);
+        Imgproc.cvtColor(sourceImgMat, sourceImgMat, Imgproc.COLOR_RGB2GRAY);
 
         // calculate the histogram
-        Mat histogram = new Mat(histWidth, histHeight, CvType.CV_8UC4);
+        MatOfInt histSize = new MatOfInt(256);
+        MatOfInt channels = new MatOfInt(0);
+        MatOfFloat histRange = new MatOfFloat(0, 256);
 
-        MatOfFloat ranges = new MatOfFloat(0f, 255f);
-        MatOfInt histSize = new MatOfInt(255);
+        Mat histGray = new Mat();
 
-        Imgproc.calcHist(Arrays.asList(imgMat), new MatOfInt(0), new Mat(), histogram, histSize, ranges);
+        Imgproc.calcHist(Arrays.asList(sourceImgMat), channels, new Mat(), histGray, histSize, histRange, false);
 
-        // convert histogram of Mat type to a Bitmap instance
-        Mat returnHistogram = new Mat(histogram.cols(), histogram.rows(), CvType.CV_8UC1);
-        histogram.convertTo(returnHistogram, CvType.CV_8UC1);
+        // draw histogram on a new Mat object
+        int binWidth = (int)Math.round(histWidth/histSize.get(0,0)[0]);
+        Mat histImage = new Mat(histHeight, histWidth, CvType.CV_8UC3, new Scalar(0,0,0));
+        Core.normalize(histGray, histGray, 0, histImage.rows(), Core.NORM_MINMAX, -1, new Mat());
+        for(int i = 0; i < histSize.get(0,0)[0]; i++){
+            Point point1 = new Point(binWidth * (i - 1), histHeight - Math.round(histGray.get(i - 1, 0)[0]));
+            Point point2 = new Point(binWidth * i, histHeight - Math.round(histGray.get(i, 0)[0]));
+            Imgproc.line(histImage, point1, point2, new Scalar(255, 0, 0), 2, 8, 0);
+        }
 
-        Bitmap imgBitmap = Bitmap.createBitmap(histogram.cols(), histogram.rows(), Bitmap.Config.ARGB_8888);
-        Utils.matToBitmap(returnHistogram, imgBitmap);
+        // convert it to Bitmap
+        Bitmap imgBitmap = Bitmap.createBitmap(histImage.cols(), histImage.rows(), Bitmap.Config.ARGB_8888);
+        Utils.matToBitmap(histImage, imgBitmap);
         return imgBitmap;
     }
 }
