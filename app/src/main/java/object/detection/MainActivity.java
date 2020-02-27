@@ -12,6 +12,8 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.ImageView;
 import java.io.IOException;
+import java.util.Arrays;
+
 import android.graphics.ImageDecoder;
 
 import org.opencv.android.BaseLoaderCallback;
@@ -19,12 +21,15 @@ import org.opencv.android.LoaderCallbackInterface;
 import org.opencv.android.OpenCVLoader;
 import org.opencv.android.Utils;
 import org.opencv.core.Mat;
+import org.opencv.core.MatOfFloat;
+import org.opencv.core.MatOfInt;
 import org.opencv.imgproc.Imgproc;
 import org.opencv.core.CvType;
 
 public class MainActivity extends AppCompatActivity {
     private static final int PICK_IMG = 100;
     ImageView imageView;
+    ImageView histogramView;
     // Button buttonCamera;
     Button buttonLoadImage;
     Uri imageUri;
@@ -51,6 +56,7 @@ public class MainActivity extends AppCompatActivity {
         OpenCVLoader.initDebug();
 
         imageView = findViewById(R.id.imageView);
+        histogramView = findViewById(R.id.histogramView);
         // buttonCamera = findViewById(R.id.buttonOpenCamera); //TODO: implement camera API
         buttonLoadImage = findViewById(R.id.buttonLoadImage);
 
@@ -79,6 +85,7 @@ public class MainActivity extends AppCompatActivity {
         startActivityForResult(gallery, PICK_IMG); // call to onActivityResult
     }
     protected void onActivityResult(int requestCode, int resultCode, Intent data){
+        Log.i("Customized", String.valueOf(histogramView.getWidth()));
         super.onActivityResult(requestCode, resultCode, data);
         if( resultCode == RESULT_OK && requestCode == PICK_IMG){
             imageUri = data.getData(); // return an Uri instance
@@ -86,8 +93,10 @@ public class MainActivity extends AppCompatActivity {
             try{
                 Bitmap bitmapContainer = ImageDecoder.decodeBitmap(sourceContainer);
                 bitmapContainer = bitmapContainer.copy(Bitmap.Config.ARGB_8888, true);
-                bitmapContainer = detectObject(bitmapContainer);
-                imageView.setImageBitmap(bitmapContainer);
+                Bitmap histogramBitmapContainer = calcHist(bitmapContainer, histogramView.getWidth(), histogramView.getHeight());
+                //Bitmap sourceImagebitmapContainer = detectObject(bitmapContainer);
+                //imageView.setImageBitmap(sourceImagebitmapContainer);
+                histogramView.setImageBitmap(histogramBitmapContainer);
             }catch(IOException e){
                 e.printStackTrace();
             }
@@ -106,6 +115,29 @@ public class MainActivity extends AppCompatActivity {
         // return new Bitmap instance
         Bitmap imgBitmap = Bitmap.createBitmap(imgResult.cols(), imgResult.rows(), Bitmap.Config.ARGB_8888);
         Utils.matToBitmap(imgResult, imgBitmap);
+        return imgBitmap;
+    }
+    private Bitmap calcHist(Bitmap input, int histWidth, int histHeight){
+        Mat imgMat = new Mat(input.getWidth(), input.getHeight(), CvType.CV_8UC4);
+        Utils.bitmapToMat(input, imgMat);
+        Imgproc.cvtColor(imgMat, imgMat, Imgproc.COLOR_RGB2GRAY);
+
+        Mat histogram = new Mat(histWidth, histHeight, CvType.CV_8UC4);
+
+        MatOfFloat ranges = new MatOfFloat(0f, 255f);
+        MatOfInt histSize = new MatOfInt(255);
+
+        Imgproc.calcHist(Arrays.asList(imgMat), new MatOfInt(0), new Mat(), histogram, histSize, ranges);
+
+        Mat returnHistogram = new Mat(histogram.cols(), histogram.rows(), CvType.CV_8UC1);
+        histogram.convertTo(returnHistogram, CvType.CV_8UC1);
+
+        Log.i("Customized", returnHistogram.toString());
+
+        Bitmap imgBitmap = Bitmap.createBitmap(histogram.cols(), histogram.rows(), Bitmap.Config.ARGB_8888);
+
+        //this line is causing assertion failure, some problem with Mat instance histogram
+        Utils.matToBitmap(returnHistogram, imgBitmap);
         return imgBitmap;
     }
 }
