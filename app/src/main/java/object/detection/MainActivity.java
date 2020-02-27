@@ -12,7 +12,9 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.ImageView;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 
 import android.graphics.ImageDecoder;
 
@@ -24,8 +26,10 @@ import org.opencv.core.Core;
 import org.opencv.core.Mat;
 import org.opencv.core.MatOfFloat;
 import org.opencv.core.MatOfInt;
+import org.opencv.core.MatOfPoint;
 import org.opencv.core.Point;
 import org.opencv.core.Scalar;
+import org.opencv.core.Size;
 import org.opencv.imgproc.Imgproc;
 import org.opencv.core.CvType;
 
@@ -109,13 +113,43 @@ public class MainActivity extends AppCompatActivity {
     }
     private Bitmap detectObject(Bitmap input){
         // prepare the image for object detection
-        Mat imgMat = new Mat(input.getWidth(), input.getHeight(), CvType.CV_8UC4);
-        Utils.bitmapToMat(input, imgMat);
-        Imgproc.cvtColor(imgMat, imgMat, Imgproc.COLOR_RGB2BGRA);
-        Mat imgResult = imgMat.clone();
+        Mat sourceImgMat = new Mat(input.getWidth(), input.getHeight(), CvType.CV_8UC4);
+        Utils.bitmapToMat(input, sourceImgMat);
+        Imgproc.cvtColor(sourceImgMat, sourceImgMat, Imgproc.COLOR_RGB2BGRA);
+        Mat imgResult = sourceImgMat.clone();
 
-        // processing
-        Imgproc.Canny(imgMat, imgResult, 80, 90);
+        // remove noise for better object detection
+        Mat blurred = new Mat();
+        Imgproc.GaussianBlur(sourceImgMat, blurred, new Size(7, 7), 2);
+
+        // morphological operations
+        Mat dilateElement = Imgproc.getStructuringElement(Imgproc.MORPH_RECT, new Size(24, 24));
+        Mat erodeElement = Imgproc.getStructuringElement(Imgproc.MORPH_RECT, new Size(12, 12));
+
+        Mat morphOutput = new Mat();
+
+        Imgproc.erode(sourceImgMat, morphOutput, erodeElement);
+        Imgproc.erode(morphOutput, morphOutput, erodeElement);
+
+        Imgproc.dilate(morphOutput, morphOutput, dilateElement);
+        Imgproc.dilate(morphOutput, morphOutput, dilateElement);
+
+        // find the contours and highlight them
+        List<MatOfPoint> contours = new ArrayList<>();
+        Mat hierarchy = new Mat();
+        Mat morphOutput32S = morphOutput.clone();
+        Imgproc.cvtColor(morphOutput, morphOutput32S, Imgproc.COLOR_BGR2GRAY);
+
+        Log.i("Customized", "morphOutput32S " + morphOutput32S.toString());
+        Imgproc.findContours(morphOutput32S, contours, hierarchy, Imgproc.RETR_CCOMP, Imgproc.CHAIN_APPROX_SIMPLE);
+        if (hierarchy.size().height > 0 && hierarchy.size().width > 0)
+        {
+            // for each contour, display it in blue
+            for (int idx = 0; idx >= 0; idx = (int) hierarchy.get(0, idx)[0])
+            {
+                Imgproc.drawContours(imgResult, contours, idx, new Scalar(250, 0, 0));
+            }
+        }
 
         // return new Bitmap instance
         Bitmap imgBitmap = Bitmap.createBitmap(imgResult.cols(), imgResult.rows(), Bitmap.Config.ARGB_8888);
