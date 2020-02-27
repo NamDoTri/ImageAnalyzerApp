@@ -85,17 +85,19 @@ public class MainActivity extends AppCompatActivity {
         startActivityForResult(gallery, PICK_IMG); // call to onActivityResult
     }
     protected void onActivityResult(int requestCode, int resultCode, Intent data){
-        Log.i("Customized", String.valueOf(histogramView.getWidth()));
         super.onActivityResult(requestCode, resultCode, data);
         if( resultCode == RESULT_OK && requestCode == PICK_IMG){
             imageUri = data.getData(); // return an Uri instance
             ImageDecoder.Source sourceContainer = ImageDecoder.createSource(this.getContentResolver(), imageUri);
             try{
+                // load data from Uri to a container of type Bitmap
                 Bitmap bitmapContainer = ImageDecoder.decodeBitmap(sourceContainer);
                 bitmapContainer = bitmapContainer.copy(Bitmap.Config.ARGB_8888, true);
+
+                // do the processing and display it
                 Bitmap histogramBitmapContainer = calcHist(bitmapContainer, histogramView.getWidth(), histogramView.getHeight());
-                //Bitmap sourceImagebitmapContainer = detectObject(bitmapContainer);
-                //imageView.setImageBitmap(sourceImagebitmapContainer);
+                Bitmap sourceImagebitmapContainer = detectObject(bitmapContainer);
+                imageView.setImageBitmap(sourceImagebitmapContainer);
                 histogramView.setImageBitmap(histogramBitmapContainer);
             }catch(IOException e){
                 e.printStackTrace();
@@ -103,7 +105,7 @@ public class MainActivity extends AppCompatActivity {
         }
     }
     private Bitmap detectObject(Bitmap input){
-        // prepare the image for processing
+        // prepare the image for object detection
         Mat imgMat = new Mat(input.getWidth(), input.getHeight(), CvType.CV_8UC4);
         Utils.bitmapToMat(input, imgMat);
         Imgproc.cvtColor(imgMat, imgMat, Imgproc.COLOR_RGB2BGRA);
@@ -118,10 +120,12 @@ public class MainActivity extends AppCompatActivity {
         return imgBitmap;
     }
     private Bitmap calcHist(Bitmap input, int histWidth, int histHeight){
+        // prepare Mat object for processing
         Mat imgMat = new Mat(input.getWidth(), input.getHeight(), CvType.CV_8UC4);
         Utils.bitmapToMat(input, imgMat);
         Imgproc.cvtColor(imgMat, imgMat, Imgproc.COLOR_RGB2GRAY);
 
+        // calculate the histogram
         Mat histogram = new Mat(histWidth, histHeight, CvType.CV_8UC4);
 
         MatOfFloat ranges = new MatOfFloat(0f, 255f);
@@ -129,14 +133,11 @@ public class MainActivity extends AppCompatActivity {
 
         Imgproc.calcHist(Arrays.asList(imgMat), new MatOfInt(0), new Mat(), histogram, histSize, ranges);
 
+        // convert histogram of Mat type to a Bitmap instance
         Mat returnHistogram = new Mat(histogram.cols(), histogram.rows(), CvType.CV_8UC1);
         histogram.convertTo(returnHistogram, CvType.CV_8UC1);
 
-        Log.i("Customized", returnHistogram.toString());
-
         Bitmap imgBitmap = Bitmap.createBitmap(histogram.cols(), histogram.rows(), Bitmap.Config.ARGB_8888);
-
-        //this line is causing assertion failure, some problem with Mat instance histogram
         Utils.matToBitmap(returnHistogram, imgBitmap);
         return imgBitmap;
     }
