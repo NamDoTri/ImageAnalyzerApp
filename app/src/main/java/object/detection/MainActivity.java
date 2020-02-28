@@ -152,6 +152,7 @@ public class MainActivity extends AppCompatActivity {
         }
 
         // return new Bitmap instance
+        Imgproc.cvtColor(imgResult, imgResult, Imgproc.COLOR_BGRA2RGB);
         Bitmap imgBitmap = Bitmap.createBitmap(imgResult.cols(), imgResult.rows(), Bitmap.Config.ARGB_8888);
         Utils.matToBitmap(imgResult, imgBitmap);
         return imgBitmap;
