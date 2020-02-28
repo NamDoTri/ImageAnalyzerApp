@@ -129,7 +129,7 @@ public class MainActivity extends AppCompatActivity {
         Imgproc.cvtColor(blurred, blurred, Imgproc.COLOR_BGRA2GRAY);
         Core.MinMaxLocResult thresholds = Core.minMaxLoc(blurred);
         Mat binImage = sourceImgMat.clone();
-        Imgproc.Canny(blurred, binImage, thresholds.minVal, thresholds.maxVal);
+        Imgproc.Canny(blurred, binImage, thresholds.minVal+80.0, thresholds.maxVal-80.0);
 
         // morphological operations
         Mat dilateElement = Imgproc.getStructuringElement(Imgproc.MORPH_RECT, new Size(24, 24));
@@ -137,11 +137,11 @@ public class MainActivity extends AppCompatActivity {
 
         Mat morphOutput = new Mat();
 
-        Imgproc.erode(blurred, morphOutput, erodeElement);
-        Imgproc.erode(morphOutput, morphOutput, erodeElement);
+        Imgproc.dilate(binImage, morphOutput, dilateElement);
+        //Imgproc.dilate(morphOutput, morphOutput, dilateElement);
 
-        Imgproc.dilate(morphOutput, morphOutput, dilateElement);
-        Imgproc.dilate(morphOutput, morphOutput, dilateElement);
+        Imgproc.erode(morphOutput, morphOutput, erodeElement);
+        //Imgproc.erode(morphOutput, morphOutput, erodeElement);
 
         // find the contours and highlight them
         List<MatOfPoint> contours = new ArrayList<>();
@@ -149,7 +149,7 @@ public class MainActivity extends AppCompatActivity {
         Mat morphOutput32S = morphOutput.clone();
 
         Log.i("Customized", "morphOutput32S " + morphOutput32S.toString());
-        Imgproc.findContours(morphOutput32S, contours, hierarchy, Imgproc.RETR_CCOMP, Imgproc.CHAIN_APPROX_SIMPLE);
+        Imgproc.findContours(morphOutput, contours, hierarchy, Imgproc.RETR_CCOMP, Imgproc.CHAIN_APPROX_SIMPLE);
         Log.i("Customized", "Contours: " + contours.toString());
         if (hierarchy.size().height > 0 && hierarchy.size().width > 0)
         {
