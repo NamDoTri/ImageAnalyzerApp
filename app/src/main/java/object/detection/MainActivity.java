@@ -27,7 +27,9 @@ import org.opencv.core.Mat;
 import org.opencv.core.MatOfFloat;
 import org.opencv.core.MatOfInt;
 import org.opencv.core.MatOfPoint;
+import org.opencv.core.MatOfPoint2f;
 import org.opencv.core.Point;
+import org.opencv.core.Rect;
 import org.opencv.core.Scalar;
 import org.opencv.core.Size;
 import org.opencv.imgproc.Imgproc;
@@ -112,6 +114,7 @@ public class MainActivity extends AppCompatActivity {
         }
     }
     private Bitmap detectObject(Bitmap input){
+        Log.i("Customized", "detectObject called");
         // prepare the image for object detection
         Mat sourceImgMat = new Mat(input.getWidth(), input.getHeight(), CvType.CV_8UC4);
         Utils.bitmapToMat(input, sourceImgMat);
@@ -122,13 +125,19 @@ public class MainActivity extends AppCompatActivity {
         Mat blurred = new Mat();
         Imgproc.GaussianBlur(sourceImgMat, blurred, new Size(7, 7), 2);
 
+        //convert image to grayscale to determine thresholds
+        Imgproc.cvtColor(blurred, blurred, Imgproc.COLOR_BGRA2GRAY);
+        Core.MinMaxLocResult thresholds = Core.minMaxLoc(blurred);
+        Mat binImage = sourceImgMat.clone();
+        Imgproc.Canny(blurred, binImage, thresholds.minVal, thresholds.maxVal);
+
         // morphological operations
         Mat dilateElement = Imgproc.getStructuringElement(Imgproc.MORPH_RECT, new Size(24, 24));
         Mat erodeElement = Imgproc.getStructuringElement(Imgproc.MORPH_RECT, new Size(12, 12));
 
         Mat morphOutput = new Mat();
 
-        Imgproc.erode(sourceImgMat, morphOutput, erodeElement);
+        Imgproc.erode(blurred, morphOutput, erodeElement);
         Imgproc.erode(morphOutput, morphOutput, erodeElement);
 
         Imgproc.dilate(morphOutput, morphOutput, dilateElement);
@@ -138,16 +147,29 @@ public class MainActivity extends AppCompatActivity {
         List<MatOfPoint> contours = new ArrayList<>();
         Mat hierarchy = new Mat();
         Mat morphOutput32S = morphOutput.clone();
-        Imgproc.cvtColor(morphOutput, morphOutput32S, Imgproc.COLOR_BGR2GRAY);
 
         Log.i("Customized", "morphOutput32S " + morphOutput32S.toString());
         Imgproc.findContours(morphOutput32S, contours, hierarchy, Imgproc.RETR_CCOMP, Imgproc.CHAIN_APPROX_SIMPLE);
+        Log.i("Customized", "Contours: " + contours.toString());
         if (hierarchy.size().height > 0 && hierarchy.size().width > 0)
         {
             // for each contour, display it in blue
             for (int idx = 0; idx >= 0; idx = (int) hierarchy.get(0, idx)[0])
             {
                 Imgproc.drawContours(imgResult, contours, idx, new Scalar(250, 0, 0));
+                MatOfPoint2f approxCurve = new MatOfPoint2f();
+                MatOfPoint2f contour2f = new MatOfPoint2f( contours.get(idx).toArray() );
+                //Processing on mMOP2f1 which is in type MatOfPoint2f
+                double approxDistance = Imgproc.arcLength(contour2f, true)*0.02;
+                Imgproc.approxPolyDP(contour2f, approxCurve, approxDistance, true);
+
+                //Convert back to MatOfPoint
+                MatOfPoint points = new MatOfPoint( approxCurve.toArray() );
+
+                // Get bounding rect of contour
+                Rect rect = Imgproc.boundingRect(points);
+
+                Imgproc.rectangle(imgResult, new Point(rect.x, rect.y), new Point(rect.x + rect.width, rect.y + rect.height), new Scalar(255, 0, 0, 255), 3);
             }
         }
 
