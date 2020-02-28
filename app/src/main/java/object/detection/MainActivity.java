@@ -175,6 +175,7 @@ public class MainActivity extends AppCompatActivity {
         int binWidth = (int)Math.round(histWidth/histSize.get(0,0)[0]);
         Mat histImage = new Mat(histHeight, histWidth, CvType.CV_8UC3, new Scalar(0,0,0));
         Core.normalize(histGray, histGray, 0, histImage.rows(), Core.NORM_MINMAX, -1, new Mat());
+        Core.normalize(histGray, histGray, histImage.cols(), 0, Core.NORM_MINMAX);
         for(int i = 0; i < histSize.get(0,0)[0]; i++){
             Point point1 = new Point(binWidth * (i - 1), histHeight - Math.round(histGray.get(i - 1, 0)[0]));
             Point point2 = new Point(binWidth * i, histHeight - Math.round(histGray.get(i, 0)[0]));
